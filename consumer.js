@@ -48,6 +48,14 @@ const runConsumer = async () => {
           console.log('Documents inserted into MongoDB');
           // Clear the buffer after successful insert
           buffer.length = 0;
+
+           buffer.length = 0;
+           // Manually commit offsets
+           await consumer.commitOffsets([
+             { topic, partition, offset: (parseInt(message.offset, 10) + 1).toString() }
+           ]);
+           console.log('Offsets committed');
+
         } catch (err) {
           console.error('Failed to insert documents into MongoDB', err);
         }
