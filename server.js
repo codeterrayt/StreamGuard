@@ -13,7 +13,7 @@ app.use(bodyParser.json());
   await connectProducer();
 })();
 
-app.post('/get/location', async (req, res) => {
+app.post('/push/location', async (req, res) => {
   const { latitude, longitude } = req.body;
 
   if (latitude === undefined || longitude === undefined) {
