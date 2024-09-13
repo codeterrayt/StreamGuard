@@ -2,16 +2,19 @@
 const { Kafka } = require('kafkajs');
 const mongoose = require('mongoose');
 
+
+require('dotenv').config();
+
 const kafka = new Kafka({
-  clientId: 'my-app',
-  brokers: ['localhost:9092'] // Replace with your Kafka broker addresses
+  clientId: process.env.KAFKA_CLIENT_ID,
+  brokers: [process.env.KAFKA_BROKER]
 });
 
-const consumer = kafka.consumer({ groupId: 'location-group' });
+const consumer = kafka.consumer({ groupId: process.env.KAFKA_GROUP_ID });
 const topic = 'location';
 
 // Mongoose setup
-const mongoUrl = process.env.MONGO_URL; // Replace with your MongoDB URL
+const mongoUrl = process.env.MONGO_URL; 
 mongoose.connect(mongoUrl, { useNewUrlParser: true, useUnifiedTopology: true })
   .then(() => console.log('Connected to MongoDB'))
   .catch(err => console.error('Failed to connect to MongoDB', err));
@@ -25,7 +28,7 @@ const Location = mongoose.model('Location', locationSchema);
 
 // Buffer to store messages
 const buffer = [];
-const bufferSize = 10;
+const bufferSize = process.env.MAX_DATA_LENGTH_BUFFER;
 
 const runConsumer = async () => {
   await consumer.connect();

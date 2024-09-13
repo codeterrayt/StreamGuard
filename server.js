@@ -21,7 +21,7 @@ app.post('/push/location', async (req, res) => {
   }
 
   // Push data to Kafka
-  await sendMessage('location', { latitude, longitude });
+  await sendMessage(process.env.KAFKA_TOPIC, { latitude, longitude });
 
   res.send('Location data received');
 });
