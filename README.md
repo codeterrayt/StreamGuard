@@ -57,6 +57,19 @@ npm install
 - **Server**: Manages data flow and interacts with Kafka.
 - **Consumer**: Processes incoming data and performs bulk insertions based on the configured buffer length.
 
+## Testing
+
+To test the data ingestion and processing, you can use the provided test script:
+
+1. **Run the Test Script**:
+
+   ```bash
+   node test/test.js
+   ```
+
+   This script sends 3 requests per second with incrementing latitude and longitude values to simulate data streaming.
+
+
 ## Contributing
 
 Feel free to contribute by submitting issues or pull requests. For any questions or feedback, open an issue on the [GitHub repository](https://github.com/codeterrayt/StreamGuard).
