@@ -49,7 +49,7 @@ npm install
    Example configuration in `.env` file:
 
    ```env
-   MAX_DATA_LENGTH_BUFFER=10
+   MAX_DATA_LENGTH_BUFFER=100
    ```
 
 ## Usage
