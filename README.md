@@ -1,6 +1,6 @@
 # StreamGuard
 
-**StreamGuard** is a powerful data management script designed to efficiently handle high-velocity data streams and reduce the load on MongoDB. It leverages Kafka to streamline the processing of real-time data, making it ideal for scenarios such as live GPS tracking and other applications requiring rapid data handling.
+**StreamGuard** is a powerful data management NodeJS Application designed to efficiently handle high-velocity data streams and reduce the load on MongoDB. It leverages Kafka to streamline the processing of real-time data, making it ideal for scenarios such as live GPS tracking and other applications requiring rapid data handling.
 
 ## Features
 
