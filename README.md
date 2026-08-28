@@ -1,75 +1,159 @@
-# StreamGuard
+**Automate Branch Sync with CI (GitHub Actions)**
 
-**StreamGuard** is a powerful data management NodeJS Application designed to efficiently handle high-velocity data streams and reduce the load on MongoDB. It leverages Kafka to streamline the processing of real-time data, making it ideal for scenarios such as live GPS tracking and other applications requiring rapid data handling.
+Here are production-ready GitHub Actions workflows to keep branches synchronized automatically.
 
-## Features
+### 1. Keep a target branch always up-to-date with `main` (Most Common)
 
-- **Real-Time Data Processing**: Handles fast-moving data streams efficiently.
-- **Reduced MongoDB Overload**: Uses Kafka to alleviate pressure on MongoDB.
-- **Bulk Insertion**: Performs bulk data operations to optimize performance.
+This workflow runs every time something is pushed to `main` and merges (or rebases) the changes into another branch (e.g. `staging`, `develop`, `production`).
 
-## Installation
+Create the file: `.github/workflows/sync-branch.yml`
 
-Clone the repository and install the dependencies:
+```yaml
+name: Sync Branch
 
-```bash
-git clone https://github.com/codeterrayt/StreamGuard.git
-cd StreamGuard
-npm install
+on:
+  push:
+    branches:
+      - main                    # Source branch
+  workflow_dispatch:            # Allow manual trigger
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Sync <target-branch> with main
+        run: |
+          TARGET_BRANCH="<target-branch>"   # ← change this (e.g. staging)
+
+          git fetch origin
+          git checkout $TARGET_BRANCH || git checkout -b $TARGET_BRANCH origin/main
+          git merge origin/main --no-edit
+          git push origin $TARGET_BRANCH
 ```
 
-## Running the Application
+Replace `<target-branch>` with the real name (`staging`, `develop`, etc.).
 
-1. **Start the Required Services**:
+---
 
-   - MongoDB:
-     ```bash
-     docker run -p 27017:27017 mongo
-     ```
-   - Zookeeper:
-     ```bash
-     docker run -p 2181:2181 zookeeper
-     ```
-   - Kafka:
-     ```bash
-     docker run -p 9092:9092 -e KAFKA_ZOOKEEPER_CONNECT=<IPv4-Address>:2181 -e KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://<IPv4-Address>:9092 -e KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR=1 confluentinc/cp-kafka
-     ```
+### 2. Safer version using Pull Request (Recommended for protected branches)
 
-2. **Run the Server and Consumer Applications**:
+Instead of pushing directly, it opens a PR that can be reviewed or auto-merged:
 
-   ```bash
-   node server.js
-   node consumer-app.js
-   ```
+```yaml
+name: Sync Branch via PR
 
-## Environment Variables
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
 
-- **`MAX_DATA_LENGTH_BUFFER`**: Defines the maximum number of data entries to buffer before performing a bulk insertion. Set this to `10` to trigger bulk operations after accumulating 10 data entries.
+permissions:
+  contents: write
+  pull-requests: write
 
-   Example configuration in `.env` file:
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-   ```env
-   MAX_DATA_LENGTH_BUFFER=100
-   ```
+      - name: Create or update sync PR
+        uses: pascalgn/update-branch-action@v1   # or use a simple script
+        # Alternative simple approach below
+```
 
-## Usage
+Or a pure script version that creates a PR:
 
-- **Server**: Manages data flow and interacts with Kafka.
-- **Consumer**: Processes incoming data and performs bulk insertions based on the configured buffer length.
+```yaml
+      - name: Create Sync PR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TARGET="<target-branch>"
+          git fetch origin
+          git checkout -B sync/$TARGET origin/main
+          git push -u origin sync/$TARGET --force-with-lease
 
-## Testing
+          gh pr create \
+            --base $TARGET \
+            --head sync/$TARGET \
+            --title "chore: sync $TARGET with main" \
+            --body "Automated branch synchronization" \
+            || gh pr edit --title "chore: sync $TARGET with main"
+```
 
-To test the data ingestion and processing, you can use the provided test script:
+---
 
-1. **Run the Test Script**:
+### 3. Auto-rebase open Pull Requests (keep PRs up-to-date)
 
-   ```bash
-   node test/test.js
-   ```
+```yaml
+name: Rebase PRs
 
-   This script sends 3 requests per second with incrementing latitude and longitude values to simulate data streaming.
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "0 8 * * *"   # every day at 08:00 UTC
+  workflow_dispatch:
 
+jobs:
+  rebase:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
 
-## Contributing
+      - name: Rebase all open PRs
+        uses: cirrus-actions/rebase@1.8
+        with:
+          autosquash: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+```
 
-Feel free to contribute by submitting issues or pull requests. For any questions or feedback, open an issue on the [GitHub repository](https://github.com/codeterrayt/StreamGuard).
+---
+
+### Recommended Setup for Apex Capital / Cloudflare
+
+| Goal                              | Workflow to use                  | Notes |
+|-----------------------------------|----------------------------------|-------|
+| Keep `staging` = `main`           | Workflow 1 or 2                  | Best for Cloudflare preview/staging |
+| Keep `production` in sync         | Workflow 2 (via PR)              | Safer, dual-control friendly |
+| Keep open feature PRs up-to-date  | Workflow 3                       | Reduces merge conflicts |
+| Protected branches                | Always use PR-based sync         | Required when branch protection is on |
+
+### Required Repository Settings
+
+1. **Settings → Actions → General**
+   - Workflow permissions → **Read and write permissions**
+   - Allow GitHub Actions to create and approve pull requests
+
+2. For protected branches, prefer the **PR-based** workflow so dual-control / reviews still apply.
+
+---
+
+Would you like me to:
+
+1. Generate the exact workflow file ready to commit for your repository,
+2. Add dual-control / approval gates for the production sync, or
+3. Create a version that also triggers Cloudflare deployments after sync?
+
+Just tell me the source branch, target branch(es), and any protection requirements.
